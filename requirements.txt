@@ -9,6 +9,7 @@ Flask==3.0.0
 fonttools==4.55.3
 frozendict==2.4.6
 html5lib==1.1
+click==8.1.7ß
 idna==3.10
 importlib-metadata==7.0.0
 importlib_resources==6.4.5
@@ -21,6 +22,7 @@ MarkupSafe==2.1.5
 matplotlib==3.7.1
 multitasking==0.0.11
 numpy==1.25.2
+gunicorn==21.2.0
 packaging==24.2
 pandas==2.0.3
 peewee==3.17.8
