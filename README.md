@@ -108,7 +108,7 @@ Maximum Drawdown: 2.50%
 
 ### **Interactive Plot**
 
-![Example Plot](static/example_plot.png)
+![Example Plot](static/AAPL_breakout_strategy.png)
 
 ---
 
@@ -124,34 +124,6 @@ The tool uses a **Random Forest Classifier** to predict breakout days based on:
 
 You can test and improve the model by tuning hyperparameters or adding more features like **RSI** and **MACD**.
 
----
-
-## ⚠️ **Disclaimer**
-
-This tool is for **educational purposes** only and should not be used for actual trading or investment decisions. **Past performance does not guarantee future results.**
-
----
-
-## 👨‍💻 **Contributing**
-
-Contributions are welcome!
-
-1. **Fork the repository**.
-2. **Create a new branch**:  
-   ```bash
-   git checkout -b my-feature-branch
-   ```
-3. **Make your changes and commit**:  
-   ```bash
-   git commit -m "Add new feature"
-   ```
-4. **Push to the branch**:  
-   ```bash
-   git push origin my-feature-branch
-   ```
-5. **Submit a pull request**.
-
----
 
 ## 📜 **License**
 
