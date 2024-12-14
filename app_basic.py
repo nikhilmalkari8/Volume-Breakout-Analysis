@@ -70,14 +70,30 @@ def calculate_returns(data, trade_days, holding_period, strategy_name):
     results = []
     for trade_date in trade_days.index:
         buy_price = data.at[trade_date, 'Close']
-        sell_date = trade_date + pd.Timedelta(days=holding_period)
-        sell_price = data.at[sell_date, 'Close'] if sell_date in data.index else None
-        return_percent = ((sell_price - buy_price) / buy_price) * 100 if sell_price else None
+        sell_date = trade_date
+
+        # Iterate to find the next valid trading day within the holding period
+        valid_sell_date = None
+        for _ in range(holding_period):
+            sell_date += pd.Timedelta(days=1)
+            if sell_date in data.index:
+                valid_sell_date = sell_date
+                break
+        
+        if valid_sell_date:
+            sell_price = data.at[valid_sell_date, 'Close']
+            return_percent = ((sell_price - buy_price) / buy_price) * 100
+            sell_date_display = valid_sell_date.date()
+        else:
+            sell_price = None
+            return_percent = None
+            sell_date_display = "N/A"
+
         results.append({
             'Strategy': strategy_name,
             'Breakout Date': trade_date.date(),
             'Buy Price': buy_price,
-            'Sell Date': sell_date.date() if sell_price else None,
+            'Sell Date': sell_date_display,
             'Sell Price': sell_price,
             'Return (%)': return_percent
         })
