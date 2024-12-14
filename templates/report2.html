@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Breakout Strategy Report for {{ ticker }}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            color: #333;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        h2, h3 {
+            color: #2c3e50;
+        }
+        a {
+            color: #007BFF;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        pre {
+            background-color: #e7e7e7;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        iframe {
+            width: 100%;
+            height: 500px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .download-btn {
+            display: inline-block;
+            background-color: #007BFF;
+            color: #fff;
+            padding: 10px 20px;
+            border-radius: 5px;
+            text-decoration: none;
+            margin-bottom: 20px;
+        }
+        .download-btn:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>Breakout Strategy Report for {{ ticker }}</h2>
+
+    <a href="{{ download_link }}" class="download-btn">Download Report</a>
+
+    <h3>Performance Metrics</h3>
+    <pre>{{ metrics }}</pre>
+
+    <h3>Breakout Strategy Plot</h3>
+    <iframe src="/{{ breakout_plot }}"></iframe>
+
+</body>
+</html>
