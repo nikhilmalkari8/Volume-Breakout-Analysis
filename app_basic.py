@@ -14,17 +14,10 @@ combined_results = None
 def home():
     return render_template('index.html')
 
+
 @app.route('/generate-report', methods=['POST'])
 def generate_report():
-    global output_csv
-    global combined_results
-    combined_results = pd.concat([
-        pd.DataFrame([{"Strategy": "--- Breakout Strategy ---"}]), results_breakout,
-        pd.DataFrame([{"Strategy": "--- SMA Crossover Strategy ---"}]), results_crossover,
-        pd.DataFrame([{"Strategy": "--- Breakout Strategy with Risk Management ---"}]), results_breakout_risk,
-        pd.DataFrame([{"Strategy": "--- ML Predicted Breakouts ---"}]), results_ml
-    ], ignore_index=True)
-
+    global output_csv_path
 
     # Get form inputs
     ticker = request.form['ticker']
@@ -38,7 +31,6 @@ def generate_report():
     stock = yf.Ticker(ticker)
     data = stock.history(start=start_date, end=end_date)
 
-    # Error handling for no data
     if data.empty:
         return "<h2>No data found for the given ticker and date range.</h2>"
 
@@ -50,20 +42,20 @@ def generate_report():
     data['PriceChange'] = data['Close'].pct_change() * 100
     data['PriceBreakout'] = data['PriceChange'] > price_change
 
+    # Initialize an empty DataFrame in case no breakouts are found
+    results_breakout = pd.DataFrame()
+
     # Breakout Strategy
     breakout_days = data[(data['VolumeBreakout']) & (data['PriceBreakout'])]
-    results_breakout = calculate_returns(data, breakout_days, holding_period, "Breakout Strategy")
+    if not breakout_days.empty:
+        results_breakout = calculate_returns(data, breakout_days, holding_period, "Breakout Strategy")
 
-    # Save the results to a CSV
-    output_csv = BytesIO()
-    results_breakout.to_csv(output_csv, index=False)
-    output_csv.seek(0)
+    # Save the results to a CSV file
+    os.makedirs(os.path.dirname(output_csv_path), exist_ok=True)
+    results_breakout.to_csv(output_csv_path, index=False)
 
     # Generate Plotly plot
     plot_path = create_plotly_plot(data, breakout_days, ticker, "Breakout Strategy", results_breakout)
-
-    # Calculate performance metrics
-    metrics = calculate_metrics(results_breakout)
 
     # Pass metrics and plot to the template
     return render_template('report2.html',
@@ -148,15 +140,13 @@ from flask import send_file, abort
 
 @app.route('/download-csv')
 def download_csv():
-    global combined_results
-    if combined_results is not None:
-        output_csv = BytesIO()
-        combined_results.to_csv(output_csv, index=False)
-        output_csv.seek(0)
-        return send_file(output_csv, download_name="breakout_strategy_report.csv", as_attachment=True)
-    else:
-        return "Error: Report not found.", 404
-
+    try:
+        if os.path.exists(output_csv_path):
+            return send_file(output_csv_path, as_attachment=True)
+        else:
+            return "Error: Report not found. Please generate the report first."
+    except Exception as e:
+        return f"Error during download: {str(e)}"
 
 if __name__ == '__main__':
     app.run(debug=True)
