@@ -124,20 +124,4 @@ The tool uses a **Random Forest Classifier** to predict breakout days based on:
 
 You can test and improve the model by tuning hyperparameters or adding more features like **RSI** and **MACD**.
 
-
-## 📜 **License**
-
-This project is licensed under the **MIT License**.
-
----
-
-## 💬 **Contact**
-
-If you have any questions or suggestions, feel free to reach out:
-
-- **Email**: [nikhilmalkari8@gmail.com](mailto:nikhilmalkari8@gmail.com)  
-- **GitHub**: [nikhilmalkari8](https://github.com/nikhilmalkari8)
-
----
-
 This `README.md` provides a clear overview of your project, making it easy for others to understand and use. Let me know if you'd like any modifications!
