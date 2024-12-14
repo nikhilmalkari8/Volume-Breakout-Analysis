@@ -9,7 +9,7 @@ Flask==3.0.0
 fonttools==4.55.3
 frozendict==2.4.6
 html5lib==1.1
-click==8.1.7ß
+click==8.1.7
 idna==3.10
 importlib-metadata==7.0.0
 importlib_resources==6.4.5
