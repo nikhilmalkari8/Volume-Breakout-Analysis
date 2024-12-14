@@ -139,23 +139,15 @@ from flask import send_file, abort
 
 @app.route('/download-csv')
 def download_csv():
-    try:
-        if output_csv is None:
-            abort(404, description="Error: Report not found.")
-
-        # Reset file pointer to the beginning
+    # Re-fetch the data and generate the report on the fly
+    global combined_results
+    if combined_results is not None:
+        output_csv = BytesIO()
+        combined_results.to_csv(output_csv, index=False)
         output_csv.seek(0)
-
-        # Send the file with appropriate headers
-        return send_file(
-            output_csv,
-            mimetype='text/csv',
-            download_name="breakout_strategy_report.csv",
-            as_attachment=True
-        )
-    except Exception as e:
-        return f"<h2>Error during download: {str(e)}</h2>", 500
-
+        return send_file(output_csv, download_name="breakout_strategy_report.csv", as_attachment=True)
+    else:
+        return "Error: Report not found.", 404
 
 if __name__ == '__main__':
     app.run(debug=True)
