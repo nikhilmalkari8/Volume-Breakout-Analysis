@@ -108,7 +108,7 @@ Maximum Drawdown: 2.50%
 
 ### **Interactive Plot**
 
-![Example Plot](static/AAPL_breakout_strategy.png)
+![Example Plot](static/example.png)
 
 ---
 
