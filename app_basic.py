@@ -135,9 +135,27 @@ def create_plotly_plot(data, trade_days, ticker, title, results):
     fig.write_html(plot_path)
     return plot_path
 
+from flask import send_file, abort
+
 @app.route('/download-csv')
 def download_csv():
-    return send_file(output_csv, download_name="breakout_strategy_report.csv", as_attachment=True)
+    try:
+        if output_csv is None:
+            abort(404, description="Error: Report not found.")
+
+        # Reset file pointer to the beginning
+        output_csv.seek(0)
+
+        # Send the file with appropriate headers
+        return send_file(
+            output_csv,
+            mimetype='text/csv',
+            download_name="breakout_strategy_report.csv",
+            as_attachment=True
+        )
+    except Exception as e:
+        return f"<h2>Error during download: {str(e)}</h2>", 500
+
 
 if __name__ == '__main__':
     app.run(debug=True)
