@@ -51,7 +51,7 @@ def generate_report():
 
     # Save the results to the in-memory CSV
     output_csv = BytesIO()
-    results_breakout.to_csv(output_csv, index=False)
+    results_breakout.to_csv(output_csv, index=False, float_format="%.2f")
     output_csv.seek(0)  # Reset buffer position
 
     print("CSV generated successfully")  # Debug statement
