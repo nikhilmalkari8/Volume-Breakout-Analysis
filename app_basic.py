@@ -57,19 +57,15 @@ def generate_report():
     # Filter breakout days
     breakout_days = data[(data['VolumeBreakout']) & (data['PriceBreakout'])]
 
-    # Detailed logging for verification
-    for index, row in breakout_days.iterrows():
-        print(f"Date: {index}")
-        print(f"Volume: {row['Volume']}")
-        print(f"20-Day Avg Volume: {row['20DayAvgVolume']}")
-        print(f"Volume Threshold: {(1 + volume_threshold / 100) * row['20DayAvgVolume']}")
-        print(f"Price Change: {row['PriceChange']:.2f}%")
-        print("-" * 50)
+    if breakout_days.empty:
+        return "<h2>No breakout days found. Please adjust your parameters and try again.</h2>"
 
     # Calculate returns for breakout strategy
-    results_breakout = pd.DataFrame()
-    if not breakout_days.empty:
-        results_breakout = calculate_returns(data, breakout_days, holding_period, "Breakout Strategy")
+    results_breakout = calculate_returns(data, breakout_days, holding_period, "Breakout Strategy")
+
+    # Check if results_breakout contains the required columns
+    if 'Sell Date' not in results_breakout.columns:
+        return "<h2>Error: 'Sell Date' column missing in results. Please review the calculation logic.</h2>"
 
     # Save results to CSV
     output_csv = BytesIO()
@@ -145,16 +141,17 @@ def create_plotly_plot(data, trade_days, ticker, title, results):
     ))
 
     # Plot sell points
-    sell_dates = pd.to_datetime(results['Sell Date'].dropna())
-    sell_prices = results['Sell Price'].dropna()
+    if 'Sell Date' in results.columns and 'Sell Price' in results.columns:
+        sell_dates = pd.to_datetime(results['Sell Date'].dropna(), errors='coerce')
+        sell_prices = results['Sell Price'].dropna()
 
-    fig.add_trace(go.Scatter(
-        x=sell_dates,
-        y=sell_prices,
-        mode='markers',
-        name='Sell Point',
-        marker=dict(color='red', symbol='triangle-down', size=10)
-    ))
+        fig.add_trace(go.Scatter(
+            x=sell_dates,
+            y=sell_prices,
+            mode='markers',
+            name='Sell Point',
+            marker=dict(color='red', symbol='triangle-down', size=10)
+        ))
 
     # Add titles and labels
     fig.update_layout(
