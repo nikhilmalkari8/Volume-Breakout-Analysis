@@ -16,7 +16,7 @@ def home():
 
 @app.route('/generate-report', methods=['POST'])
 def generate_report():
-    global output_csv_path
+    global output_csv
 
     # Get form inputs
     ticker = request.form['ticker']
@@ -30,6 +30,7 @@ def generate_report():
     stock = yf.Ticker(ticker)
     data = stock.history(start=start_date, end=end_date)
 
+    # Error handling for no data
     if data.empty:
         return "<h2>No data found for the given ticker and date range.</h2>"
 
@@ -41,23 +42,20 @@ def generate_report():
     data['PriceChange'] = data['Close'].pct_change() * 100
     data['PriceBreakout'] = data['PriceChange'] > price_change
 
-    # Initialize an empty DataFrame in case no breakouts are found
-    results_breakout = pd.DataFrame()
-
     # Breakout Strategy
     breakout_days = data[(data['VolumeBreakout']) & (data['PriceBreakout'])]
-    if not breakout_days.empty:
-        results_breakout = calculate_returns(data, breakout_days, holding_period, "Breakout Strategy")
+    results_breakout = calculate_returns(data, breakout_days, holding_period, "Breakout Strategy")
 
-    # Save the results to a CSV file
-    os.makedirs(os.path.dirname(output_csv_path), exist_ok=True)
-    results_breakout.to_csv(output_csv_path, index=False)
-
-    # Calculate metrics
-    metrics = calculate_metrics(results_breakout)
+    # Save the results to a CSV
+    output_csv = BytesIO()
+    results_breakout.to_csv(output_csv, index=False)
+    output_csv.seek(0)
 
     # Generate Plotly plot
     plot_path = create_plotly_plot(data, breakout_days, ticker, "Breakout Strategy", results_breakout)
+
+    # Calculate performance metrics
+    metrics = calculate_metrics(results_breakout)
 
     # Pass metrics and plot to the template
     return render_template('report2.html',
@@ -72,10 +70,6 @@ def calculate_returns(data, trade_days, holding_period, strategy_name):
         buy_price = data.at[trade_date, 'Close']
         sell_date = trade_date + pd.Timedelta(days=holding_period)
         sell_price = data.at[sell_date, 'Close'] if sell_date in data.index else None
-
-        if pd.isnull(buy_price) or pd.isnull(sell_price):
-            continue  # Skip if prices are missing
-
         return_percent = ((sell_price - buy_price) / buy_price) * 100 if sell_price else None
         results.append({
             'Strategy': strategy_name,
@@ -86,7 +80,6 @@ def calculate_returns(data, trade_days, holding_period, strategy_name):
             'Return (%)': return_percent
         })
     return pd.DataFrame(results)
-
 
 def calculate_metrics(results):
     metrics = ""
@@ -147,6 +140,7 @@ from flask import send_file, abort
 
 @app.route('/download-csv')
 def download_csv():
+    # Re-fetch the data and generate the report on the fly
     global combined_results
     if combined_results is not None:
         output_csv = BytesIO()
@@ -155,7 +149,6 @@ def download_csv():
         return send_file(output_csv, download_name="breakout_strategy_report.csv", as_attachment=True)
     else:
         return "Error: Report not found.", 404
-
 
 if __name__ == '__main__':
     app.run(debug=True)
