@@ -4,11 +4,11 @@ import pandas as pd
 import numpy as np
 from io import BytesIO
 import plotly.graph_objects as go
+from pandas.tseries.offsets import BDay
 
 app = Flask(__name__)
 
 output_csv = None
-combined_results = None
 
 @app.route('/', methods=['GET'])
 def home():
@@ -33,27 +33,30 @@ def generate_report():
     if data.empty:
         return "<h2>No data found for the given ticker and date range.</h2>"
 
-    # Calculate 20-day average volume
-    data['20DayAvgVolume'] = data['Volume'].rolling(window=20).mean()
+    # Calculate 20-day average volume excluding the current day
+    data['20DayAvgVolume'] = data['Volume'].rolling(window=20).mean().shift(1)
 
     # Identify breakout days
-    data['VolumeBreakout'] = data['Volume'] > (volume_threshold / 100) * data['20DayAvgVolume']
+    data['VolumeBreakout'] = data['Volume'] > (1 + volume_threshold / 100) * data['20DayAvgVolume']
     data['PriceChange'] = data['Close'].pct_change() * 100
     data['PriceBreakout'] = data['PriceChange'] > price_change
 
-    results_breakout = pd.DataFrame()
-
-    # Breakout Strategy
+    # Filter breakout days
     breakout_days = data[(data['VolumeBreakout']) & (data['PriceBreakout'])]
+
+    # Calculate returns for breakout strategy
+    results_breakout = pd.DataFrame()
     if not breakout_days.empty:
         results_breakout = calculate_returns(data, breakout_days, holding_period, "Breakout Strategy")
 
+    # Save results to CSV
     output_csv = BytesIO()
     results_breakout.to_csv(output_csv, index=False, float_format="%.2f")
-    output_csv.seek(0)  
+    output_csv.seek(0)
 
-    print("CSV generated successfully")  
+    print("CSV generated successfully")
 
+    # Generate plot
     plot_path = create_plotly_plot(data, breakout_days, ticker, "Breakout Strategy", results_breakout)
 
     return render_template('report2.html',
@@ -66,20 +69,14 @@ def calculate_returns(data, trade_days, holding_period, strategy_name):
     results = []
     for trade_date in trade_days.index:
         buy_price = data.at[trade_date, 'Close']
-        sell_date = trade_date
-
-        # Iterating to find the next valid trading day within the holding period
-        valid_sell_date = None
-        for _ in range(holding_period):
-            sell_date += pd.Timedelta(days=1)
-            if sell_date in data.index:
-                valid_sell_date = sell_date
-                break
         
-        if valid_sell_date:
-            sell_price = data.at[valid_sell_date, 'Close']
+        # Calculate the sell date as 10 discrete trading days later
+        sell_date = trade_date + BDay(holding_period)
+
+        if sell_date in data.index:
+            sell_price = data.at[sell_date, 'Close']
             return_percent = ((sell_price - buy_price) / buy_price) * 100
-            sell_date_display = valid_sell_date.date()
+            sell_date_display = sell_date.date()
         else:
             sell_price = None
             return_percent = None
@@ -112,8 +109,10 @@ def calculate_metrics(results):
 def create_plotly_plot(data, trade_days, ticker, title, results):
     fig = go.Figure()
 
+    # Plot stock price
     fig.add_trace(go.Scatter(x=data.index, y=data['Close'], mode='lines', name='Stock Price'))
 
+    # Plot buy points
     fig.add_trace(go.Scatter(
         x=trade_days.index,
         y=trade_days['Close'],
@@ -122,9 +121,10 @@ def create_plotly_plot(data, trade_days, ticker, title, results):
         marker=dict(color='green', symbol='triangle-up', size=10)
     ))
 
+    # Plot sell points
     sell_dates = pd.to_datetime(results['Sell Date'].dropna())
     sell_prices = results['Sell Price'].dropna()
-    
+
     fig.add_trace(go.Scatter(
         x=sell_dates,
         y=sell_prices,
@@ -133,6 +133,7 @@ def create_plotly_plot(data, trade_days, ticker, title, results):
         marker=dict(color='red', symbol='triangle-down', size=10)
     ))
 
+    # Add titles and labels
     fig.update_layout(
         title=f"{ticker} - {title}",
         xaxis_title="Date",
@@ -141,23 +142,19 @@ def create_plotly_plot(data, trade_days, ticker, title, results):
         showlegend=True
     )
 
+    # Save plot as HTML
     plot_path = f'static/{ticker}_{title.replace(" ", "_").lower()}.html'
     fig.write_html(plot_path)
     return plot_path
 
-from flask import send_file, abort
-
 @app.route('/download-csv')
 def download_csv():
     global output_csv
-    try:
-        if output_csv:
-            output_csv.seek(0)
-            return send_file(output_csv, download_name="breakout_strategy_report.csv", as_attachment=True)
-        else:
-            return "Error: Report not found. Please generate the report first."
-    except Exception as e:
-        return f"Error during download: {str(e)}"
+    if output_csv:
+        output_csv.seek(0)
+        return send_file(output_csv, download_name="breakout_strategy_report.csv", as_attachment=True)
+    else:
+        return "Error: Report not found. Please generate the report first."
 
 if __name__ == '__main__':
     app.run(debug=True)
