@@ -8,6 +8,7 @@ import plotly.graph_objects as go
 app = Flask(__name__)
 
 output_csv = None
+combined_results = None
 
 @app.route('/', methods=['GET'])
 def home():
@@ -16,6 +17,14 @@ def home():
 @app.route('/generate-report', methods=['POST'])
 def generate_report():
     global output_csv
+    global combined_results
+    combined_results = pd.concat([
+        pd.DataFrame([{"Strategy": "--- Breakout Strategy ---"}]), results_breakout,
+        pd.DataFrame([{"Strategy": "--- SMA Crossover Strategy ---"}]), results_crossover,
+        pd.DataFrame([{"Strategy": "--- Breakout Strategy with Risk Management ---"}]), results_breakout_risk,
+        pd.DataFrame([{"Strategy": "--- ML Predicted Breakouts ---"}]), results_ml
+    ], ignore_index=True)
+
 
     # Get form inputs
     ticker = request.form['ticker']
@@ -139,7 +148,6 @@ from flask import send_file, abort
 
 @app.route('/download-csv')
 def download_csv():
-    # Re-fetch the data and generate the report on the fly
     global combined_results
     if combined_results is not None:
         output_csv = BytesIO()
@@ -148,6 +156,7 @@ def download_csv():
         return send_file(output_csv, download_name="breakout_strategy_report.csv", as_attachment=True)
     else:
         return "Error: Report not found.", 404
+
 
 if __name__ == '__main__':
     app.run(debug=True)
