@@ -14,7 +14,6 @@ combined_results = None
 def home():
     return render_template('index.html')
 
-
 @app.route('/generate-report', methods=['POST'])
 def generate_report():
     global output_csv_path
@@ -54,6 +53,9 @@ def generate_report():
     os.makedirs(os.path.dirname(output_csv_path), exist_ok=True)
     results_breakout.to_csv(output_csv_path, index=False)
 
+    # Calculate metrics
+    metrics = calculate_metrics(results_breakout)
+
     # Generate Plotly plot
     plot_path = create_plotly_plot(data, breakout_days, ticker, "Breakout Strategy", results_breakout)
 
@@ -70,6 +72,10 @@ def calculate_returns(data, trade_days, holding_period, strategy_name):
         buy_price = data.at[trade_date, 'Close']
         sell_date = trade_date + pd.Timedelta(days=holding_period)
         sell_price = data.at[sell_date, 'Close'] if sell_date in data.index else None
+
+        if pd.isnull(buy_price) or pd.isnull(sell_price):
+            continue  # Skip if prices are missing
+
         return_percent = ((sell_price - buy_price) / buy_price) * 100 if sell_price else None
         results.append({
             'Strategy': strategy_name,
@@ -80,6 +86,7 @@ def calculate_returns(data, trade_days, holding_period, strategy_name):
             'Return (%)': return_percent
         })
     return pd.DataFrame(results)
+
 
 def calculate_metrics(results):
     metrics = ""
@@ -140,13 +147,15 @@ from flask import send_file, abort
 
 @app.route('/download-csv')
 def download_csv():
-    try:
-        if os.path.exists(output_csv_path):
-            return send_file(output_csv_path, as_attachment=True)
-        else:
-            return "Error: Report not found. Please generate the report first."
-    except Exception as e:
-        return f"Error during download: {str(e)}"
+    global combined_results
+    if combined_results is not None:
+        output_csv = BytesIO()
+        combined_results.to_csv(output_csv, index=False)
+        output_csv.seek(0)
+        return send_file(output_csv, download_name="breakout_strategy_report.csv", as_attachment=True)
+    else:
+        return "Error: Report not found.", 404
+
 
 if __name__ == '__main__':
     app.run(debug=True)
