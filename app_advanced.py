@@ -60,7 +60,6 @@ def generate_report():
     ml_results = predict_breakouts_with_ml(data)
     results_ml = calculate_returns(data, ml_results, holding_period, "ML Predicted Breakouts")
 
-    # Add section headings and combine all results
     combined_results = pd.concat([
         pd.DataFrame([{"Strategy": "--- Breakout Strategy ---"}]), results_breakout,
         pd.DataFrame([{"Strategy": "--- SMA Crossover Strategy ---"}]), results_crossover,
@@ -68,21 +67,17 @@ def generate_report():
         pd.DataFrame([{"Strategy": "--- ML Predicted Breakouts ---"}]), results_ml
     ], ignore_index=True)
 
-    # Save to CSV with proper formatting
     output_csv = BytesIO()
     combined_results.to_csv(output_csv, index=False)
     output_csv.seek(0)
 
-    # Generate and save plots
     plot_path_breakout = create_plotly_plot(data, breakout_days, "Breakout Strategy", results_breakout)
     plot_path_risk = create_plotly_plot(data, breakout_days, "Breakout Strategy with Risk Management", results_breakout_risk)
     plot_path_crossover = create_plotly_plot(data, crossover_days, "SMA Crossover Strategy", results_crossover)
     plot_path_ml = create_plotly_plot(data, ml_results, "ML Predicted Breakouts", results_ml)
 
-    # Calculate performance metrics for all strategies
     metrics = calculate_metrics(combined_results)
 
-    # Pass metrics and plots to the template
     return render_template('report.html',
                            ticker=ticker,
                            metrics=metrics,
@@ -152,7 +147,6 @@ def predict_breakouts_with_ml(data):
 def create_plotly_plot(data, trade_days, strategy_name, results):
     fig = go.Figure()
 
-    # Plot stock price
     fig.add_trace(go.Scatter(
         x=data.index, 
         y=data['Close'], 
@@ -161,7 +155,6 @@ def create_plotly_plot(data, trade_days, strategy_name, results):
         line=dict(color='blue')
     ))
 
-    # Plot buy points
     fig.add_trace(go.Scatter(
         x=trade_days.index, 
         y=trade_days['Close'], 
@@ -170,7 +163,6 @@ def create_plotly_plot(data, trade_days, strategy_name, results):
         marker=dict(color='green', symbol='triangle-up', size=10)
     ))
 
-    # Plot sell points
     sell_dates = pd.to_datetime(results['Sell Date'].dropna())
     sell_prices = results['Sell Price'].dropna()
     fig.add_trace(go.Scatter(
@@ -181,7 +173,6 @@ def create_plotly_plot(data, trade_days, strategy_name, results):
         marker=dict(color='red', symbol='triangle-down', size=10)
     ))
 
-    # Add title and labels
     fig.update_layout(
         title=f"{strategy_name} - Buy and Sell Points",
         xaxis_title="Date",
@@ -190,7 +181,6 @@ def create_plotly_plot(data, trade_days, strategy_name, results):
         showlegend=True
     )
 
-    # Save the plot to an HTML file
     plot_path = f'static/{strategy_name.replace(" ", "_").lower()}.html'
     fig.write_html(plot_path)
 

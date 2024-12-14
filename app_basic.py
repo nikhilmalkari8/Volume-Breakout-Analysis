@@ -41,7 +41,6 @@ def generate_report():
     data['PriceChange'] = data['Close'].pct_change() * 100
     data['PriceBreakout'] = data['PriceChange'] > price_change
 
-    # Initialize an empty DataFrame in case no breakouts are found
     results_breakout = pd.DataFrame()
 
     # Breakout Strategy
@@ -49,17 +48,14 @@ def generate_report():
     if not breakout_days.empty:
         results_breakout = calculate_returns(data, breakout_days, holding_period, "Breakout Strategy")
 
-    # Save the results to the in-memory CSV
     output_csv = BytesIO()
     results_breakout.to_csv(output_csv, index=False, float_format="%.2f")
-    output_csv.seek(0)  # Reset buffer position
+    output_csv.seek(0)  
 
-    print("CSV generated successfully")  # Debug statement
+    print("CSV generated successfully")  
 
-    # Generate Plotly plot
     plot_path = create_plotly_plot(data, breakout_days, ticker, "Breakout Strategy", results_breakout)
 
-    # Pass metrics and plot to the template
     return render_template('report2.html',
                            ticker=ticker,
                            metrics=calculate_metrics(results_breakout),
@@ -72,7 +68,7 @@ def calculate_returns(data, trade_days, holding_period, strategy_name):
         buy_price = data.at[trade_date, 'Close']
         sell_date = trade_date
 
-        # Iterate to find the next valid trading day within the holding period
+        # Iterating to find the next valid trading day within the holding period
         valid_sell_date = None
         for _ in range(holding_period):
             sell_date += pd.Timedelta(days=1)
@@ -116,10 +112,8 @@ def calculate_metrics(results):
 def create_plotly_plot(data, trade_days, ticker, title, results):
     fig = go.Figure()
 
-    # Plot stock price
     fig.add_trace(go.Scatter(x=data.index, y=data['Close'], mode='lines', name='Stock Price'))
 
-    # Plot buy points
     fig.add_trace(go.Scatter(
         x=trade_days.index,
         y=trade_days['Close'],
@@ -128,7 +122,6 @@ def create_plotly_plot(data, trade_days, ticker, title, results):
         marker=dict(color='green', symbol='triangle-up', size=10)
     ))
 
-    # Plot sell points
     sell_dates = pd.to_datetime(results['Sell Date'].dropna())
     sell_prices = results['Sell Price'].dropna()
     
@@ -140,7 +133,6 @@ def create_plotly_plot(data, trade_days, ticker, title, results):
         marker=dict(color='red', symbol='triangle-down', size=10)
     ))
 
-    # Add title and labels
     fig.update_layout(
         title=f"{ticker} - {title}",
         xaxis_title="Date",
@@ -149,7 +141,6 @@ def create_plotly_plot(data, trade_days, ticker, title, results):
         showlegend=True
     )
 
-    # Save the plot to an HTML file
     plot_path = f'static/{ticker}_{title.replace(" ", "_").lower()}.html'
     fig.write_html(plot_path)
     return plot_path
@@ -161,7 +152,7 @@ def download_csv():
     global output_csv
     try:
         if output_csv:
-            output_csv.seek(0)  # Ensure the buffer is at the beginning
+            output_csv.seek(0)
             return send_file(output_csv, download_name="breakout_strategy_report.csv", as_attachment=True)
         else:
             return "Error: Report not found. Please generate the report first."
