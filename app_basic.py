@@ -18,33 +18,20 @@ def home():
 def generate_report():
     global output_csv
 
-    try:
-        # Get form inputs with validation
-        ticker = request.form['ticker']
-        start_date = request.form['start_date']
-        end_date = request.form['end_date']
-        volume_threshold = float(request.form['volume_threshold'])
-        price_change = float(request.form['price_change'])
-        holding_period = int(request.form['holding_period'])
-    except ValueError:
-        return "<h2>Error: Invalid input. Please ensure thresholds are numeric.</h2>"
+    # Get form inputs
+    ticker = request.form['ticker']
+    start_date = request.form['start_date']
+    end_date = request.form['end_date']
+    volume_threshold = float(request.form['volume_threshold'])
+    price_change = float(request.form['price_change'])
+    holding_period = int(request.form['holding_period'])
 
     # Fetch historical data using yfinance
     stock = yf.Ticker(ticker)
-    try:
-        data = stock.history(start=start_date, end=end_date)
-        if data.empty:
-            return "<h2>Error: No data found for the given ticker and date range.</h2>"
-    except Exception as e:
-        return f"<h2>Error fetching data: {str(e)}</h2>"
+    data = stock.history(start=start_date, end=end_date)
 
-    # Check if data is sufficient for 20-day average calculation
-    if len(data) < 20:
-        return "<h2>Error: Date range too short for 20-day average volume calculation.</h2>"
-
-    # Check for missing data
-    if data.isnull().any().any():
-        return "<h2>Warning: Missing data detected. Please verify data completeness.</h2>"
+    if data.empty:
+        return "<h2>No data found for the given ticker and date range.</h2>"
 
     # Calculate 20-day average volume excluding the current day
     data['20DayAvgVolume'] = data['Volume'].rolling(window=20).mean().shift(1)
@@ -57,15 +44,10 @@ def generate_report():
     # Filter breakout days
     breakout_days = data[(data['VolumeBreakout']) & (data['PriceBreakout'])]
 
-    if breakout_days.empty:
-        return "<h2>No breakout days found. Please adjust your parameters and try again.</h2>"
-
     # Calculate returns for breakout strategy
-    results_breakout = calculate_returns(data, breakout_days, holding_period, "Breakout Strategy")
-
-    # Check if results_breakout contains the required columns
-    if 'Sell Date' not in results_breakout.columns:
-        return "<h2>Error: 'Sell Date' column missing in results. Please review the calculation logic.</h2>"
+    results_breakout = pd.DataFrame()
+    if not breakout_days.empty:
+        results_breakout = calculate_returns(data, breakout_days, holding_period, "Breakout Strategy")
 
     # Save results to CSV
     output_csv = BytesIO()
@@ -91,7 +73,6 @@ def calculate_returns(data, trade_days, holding_period, strategy_name):
         # Calculate the sell date as 10 discrete trading days later
         sell_date = trade_date + BDay(holding_period)
 
-        # Check if sell date exists in the data
         if sell_date in data.index:
             sell_price = data.at[sell_date, 'Close']
             return_percent = ((sell_price - buy_price) / buy_price) * 100
@@ -141,17 +122,16 @@ def create_plotly_plot(data, trade_days, ticker, title, results):
     ))
 
     # Plot sell points
-    if 'Sell Date' in results.columns and 'Sell Price' in results.columns:
-        sell_dates = pd.to_datetime(results['Sell Date'].dropna(), errors='coerce')
-        sell_prices = results['Sell Price'].dropna()
+    sell_dates = pd.to_datetime(results['Sell Date'].dropna())
+    sell_prices = results['Sell Price'].dropna()
 
-        fig.add_trace(go.Scatter(
-            x=sell_dates,
-            y=sell_prices,
-            mode='markers',
-            name='Sell Point',
-            marker=dict(color='red', symbol='triangle-down', size=10)
-        ))
+    fig.add_trace(go.Scatter(
+        x=sell_dates,
+        y=sell_prices,
+        mode='markers',
+        name='Sell Point',
+        marker=dict(color='red', symbol='triangle-down', size=10)
+    ))
 
     # Add titles and labels
     fig.update_layout(
