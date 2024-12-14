@@ -18,20 +18,33 @@ def home():
 def generate_report():
     global output_csv
 
-    # Get form inputs
-    ticker = request.form['ticker']
-    start_date = request.form['start_date']
-    end_date = request.form['end_date']
-    volume_threshold = float(request.form['volume_threshold'])
-    price_change = float(request.form['price_change'])
-    holding_period = int(request.form['holding_period'])
+    try:
+        # Get form inputs with validation
+        ticker = request.form['ticker']
+        start_date = request.form['start_date']
+        end_date = request.form['end_date']
+        volume_threshold = float(request.form['volume_threshold'])
+        price_change = float(request.form['price_change'])
+        holding_period = int(request.form['holding_period'])
+    except ValueError:
+        return "<h2>Error: Invalid input. Please ensure thresholds are numeric.</h2>"
 
     # Fetch historical data using yfinance
     stock = yf.Ticker(ticker)
-    data = stock.history(start=start_date, end=end_date)
+    try:
+        data = stock.history(start=start_date, end=end_date)
+        if data.empty:
+            return "<h2>Error: No data found for the given ticker and date range.</h2>"
+    except Exception as e:
+        return f"<h2>Error fetching data: {str(e)}</h2>"
 
-    if data.empty:
-        return "<h2>No data found for the given ticker and date range.</h2>"
+    # Check if data is sufficient for 20-day average calculation
+    if len(data) < 20:
+        return "<h2>Error: Date range too short for 20-day average volume calculation.</h2>"
+
+    # Check for missing data
+    if data.isnull().any().any():
+        return "<h2>Warning: Missing data detected. Please verify data completeness.</h2>"
 
     # Calculate 20-day average volume excluding the current day
     data['20DayAvgVolume'] = data['Volume'].rolling(window=20).mean().shift(1)
@@ -43,6 +56,15 @@ def generate_report():
 
     # Filter breakout days
     breakout_days = data[(data['VolumeBreakout']) & (data['PriceBreakout'])]
+
+    # Detailed logging for verification
+    for index, row in breakout_days.iterrows():
+        print(f"Date: {index}")
+        print(f"Volume: {row['Volume']}")
+        print(f"20-Day Avg Volume: {row['20DayAvgVolume']}")
+        print(f"Volume Threshold: {(1 + volume_threshold / 100) * row['20DayAvgVolume']}")
+        print(f"Price Change: {row['PriceChange']:.2f}%")
+        print("-" * 50)
 
     # Calculate returns for breakout strategy
     results_breakout = pd.DataFrame()
@@ -73,6 +95,7 @@ def calculate_returns(data, trade_days, holding_period, strategy_name):
         # Calculate the sell date as 10 discrete trading days later
         sell_date = trade_date + BDay(holding_period)
 
+        # Check if sell date exists in the data
         if sell_date in data.index:
             sell_price = data.at[sell_date, 'Close']
             return_percent = ((sell_price - buy_price) / buy_price) * 100
