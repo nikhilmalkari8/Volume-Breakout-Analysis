@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Volume Breakout Analysis</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1c1c2e;
+            color: #e0e0e0;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+        }
+        h1 {
+            margin-top: 30px;
+            color: #ffd700;
+            font-size: 36px;
+        }
+        form {
+            background: #2b2b3d;
+            max-width: 600px;
+            margin: 30px auto;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0px 5px 20px rgba(0, 0, 0, 0.3);
+            transition: transform 0.3s ease;
+        }
+        form:hover {
+            transform: translateY(-5px);
+        }
+        label {
+            display: block;
+            text-align: left;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #e0e0e0;
+        }
+        input[type="text"],
+        input[type="date"],
+        input[type="number"] {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 20px;
+            border: 1px solid #555;
+            border-radius: 6px;
+            background-color: #1c1c2e;
+            color: #fff;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+        input[type="text"]:focus,
+        input[type="date"]:focus,
+        input[type="number"]:focus {
+            border-color: #ffd700;
+            outline: none;
+        }
+        button {
+            background: linear-gradient(135deg, #ffd700, #ffbf00);
+            color: #1c1c2e;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 18px;
+            font-weight: 600;
+            margin: 10px 5px;
+            transition: background 0.3s ease, transform 0.2s ease;
+        }
+        button:hover {
+            background: linear-gradient(135deg, #ffbf00, #ffd700);
+            transform: translateY(-3px);
+        }
+        button:active {
+            transform: translateY(0);
+        }
+        .form-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Volume Breakout Analysis</h1>
+    <form method="POST" action="/generate-report">
+        <label for="ticker">Ticker Symbol:</label>
+        <input type="text" id="ticker" name="ticker" placeholder="e.g., AAPL" required>
+
+        <label for="start_date">Start Date (YYYY-MM-DD):</label>
+        <input type="date" id="start_date" name="start_date" required>
+
+        <label for="end_date">End Date (YYYY-MM-DD):</label>
+        <input type="date" id="end_date" name="end_date" required>
+
+        <label for="volume_threshold">Volume Breakout Threshold (%):</label>
+        <input type="number" id="volume_threshold" name="volume_threshold" placeholder="e.g., 200" required>
+
+        <label for="price_change">Daily Price Change Threshold (%):</label>
+        <input type="number" id="price_change" name="price_change" placeholder="e.g., 2" required>
+
+        <label for="holding_period">Holding Period (days):</label>
+        <input type="number" id="holding_period" name="holding_period" placeholder="e.g., 10" required>
+
+        <div class="form-buttons">
+            <button type="submit">Generate Report</button>
+            <button type="button" onclick="window.location.href='/view-visualizations?ticker=' + document.getElementById('ticker').value">View Visualizations</button>
+        </div>
+    </form>
+</body>
+</html>
