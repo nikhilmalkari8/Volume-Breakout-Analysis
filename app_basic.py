@@ -3,17 +3,20 @@ import yfinance as yf
 import pandas as pd
 from io import BytesIO
 import plotly.graph_objects as go
-from pandas.tseries.offsets import BDay
+from pandas.tseries.offsets import CustomBusinessDay
+from pandas.tseries.holiday import USFederalHolidayCalendar
 import traceback
 
 app = Flask(__name__)
+
+# Define a custom business day with US federal holidays
+us_bd = CustomBusinessDay(calendar=USFederalHolidayCalendar())
 
 def fetch_data(ticker: str, start_date: str, end_date: str) -> pd.DataFrame:
     """Fetch historical stock data using yfinance."""
     try:
         stock = yf.Ticker(ticker)
         data = stock.history(start=start_date, end=end_date)
-        # Debugging statement
         print(f"Fetched data for {ticker} from {start_date} to {end_date}")
         print(data.head())
         return data
@@ -29,18 +32,11 @@ def identify_breakouts(data: pd.DataFrame, volume_threshold: float, price_change
         data['PriceChange'] = data['Close'].pct_change() * 100
         data['PriceBreakout'] = data['PriceChange'] > price_change
         breakout_days = data[(data['VolumeBreakout']) & (data['PriceBreakout'])]
-        # Debugging statement
         print(f"Identified {len(breakout_days)} breakout days")
         return breakout_days
     except Exception as e:
         print(f"Error identifying breakouts: {e}")
         return pd.DataFrame()
-
-from pandas.tseries.offsets import CustomBusinessDay
-from pandas.tseries.holiday import USFederalHolidayCalendar
-
-# Define a custom business day with US federal holidays
-us_bd = CustomBusinessDay(calendar=USFederalHolidayCalendar())
 
 def calculate_returns(data: pd.DataFrame, breakout_days: pd.DataFrame, holding_period: int, waiting_period: int, strategy_name: str) -> pd.DataFrame:
     """Calculate returns for each breakout based on the holding period and waiting period."""
@@ -56,9 +52,8 @@ def calculate_returns(data: pd.DataFrame, breakout_days: pd.DataFrame, holding_p
         buy_price = data.at[buy_date, 'Close']
         sell_date = buy_date + holding_period * us_bd
 
-        # Ensure sell_date is adjusted to the next available business day
-        if sell_date not in data.index:
-            sell_date = data.index[data.index.get_loc(sell_date, method='nearest')]
+        # Adjust sell_date to the nearest available business day within the data
+        sell_date = data.index[data.index.get_indexer([sell_date], method='nearest')[0]]
 
         # Check if sell_date is within data range
         if sell_date in data.index:
@@ -81,7 +76,6 @@ def calculate_returns(data: pd.DataFrame, breakout_days: pd.DataFrame, holding_p
 
     return pd.DataFrame(results)
 
-
 def create_plot(data: pd.DataFrame, results: pd.DataFrame, ticker: str, title: str) -> str:
     """Create a Plotly plot showing buy and sell points on the stock price chart."""
     fig = go.Figure()
@@ -95,10 +89,10 @@ def create_plot(data: pd.DataFrame, results: pd.DataFrame, ticker: str, title: s
     fig.add_trace(go.Scatter(x=buy_dates, y=buy_prices, mode='markers', name='Buy Point',
                              marker=dict(color='green', symbol='triangle-up', size=10)))
 
-    # Filter out rows where 'Sell Date' is 'N/A' before converting
-    valid_sell_dates = results[results['Sell Date'] != 'N/A']
-    sell_dates = pd.to_datetime(valid_sell_dates['Sell Date'], errors='coerce')
-    sell_prices = valid_sell_dates['Sell Price'].dropna()
+    # Plot sell points for valid trades
+    valid_sell_trades = results[results['Sell Date'] != 'N/A']
+    sell_dates = pd.to_datetime(valid_sell_trades['Sell Date'], errors='coerce')
+    sell_prices = valid_sell_trades['Sell Price'].dropna()
     fig.add_trace(go.Scatter(x=sell_dates, y=sell_prices, mode='markers', name='Sell Point',
                              marker=dict(color='red', symbol='triangle-down', size=10)))
 
