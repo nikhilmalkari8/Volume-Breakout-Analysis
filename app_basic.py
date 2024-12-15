@@ -99,6 +99,8 @@ def home():
 
 @app.route('/generate-report', methods=['POST'])
 def generate_report():
+    global output_csv
+    
     try:
         # Get form inputs
         ticker = request.form['ticker']
@@ -146,6 +148,6 @@ def download_csv():
             return "<h2>Error: No CSV file found. Please generate the report first.</h2>"
     except Exception as e:
         return f"<h2>Error during download: {str(e)}</h2>"
-        
+
 if __name__ == '__main__':
     app.run(debug=True)
