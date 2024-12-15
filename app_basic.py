@@ -4,25 +4,37 @@ import pandas as pd
 from io import BytesIO
 import plotly.graph_objects as go
 from pandas.tseries.offsets import BDay
+import traceback
 
 app = Flask(__name__)
 
-
 def fetch_data(ticker: str, start_date: str, end_date: str) -> pd.DataFrame:
     """Fetch historical stock data using yfinance."""
-    stock = yf.Ticker(ticker)
-    data = stock.history(start=start_date, end=end_date)
-    return data
-
+    try:
+        stock = yf.Ticker(ticker)
+        data = stock.history(start=start_date, end=end_date)
+        # Debugging statement
+        print(f"Fetched data for {ticker} from {start_date} to {end_date}")
+        print(data.head())
+        return data
+    except Exception as e:
+        print(f"Error fetching data: {e}")
+        return pd.DataFrame()
 
 def identify_breakouts(data: pd.DataFrame, volume_threshold: float, price_change: float) -> pd.DataFrame:
     """Identify breakout days based on volume and price change thresholds."""
-    data['20DayAvgVolume'] = data['Volume'].rolling(window=20).mean().shift(1)
-    data['VolumeBreakout'] = data['Volume'] > (1 + volume_threshold / 100) * data['20DayAvgVolume']
-    data['PriceChange'] = data['Close'].pct_change() * 100
-    data['PriceBreakout'] = data['PriceChange'] > price_change
-    return data[(data['VolumeBreakout']) & (data['PriceBreakout'])]
-
+    try:
+        data['20DayAvgVolume'] = data['Volume'].rolling(window=20).mean().shift(1)
+        data['VolumeBreakout'] = data['Volume'] > (1 + volume_threshold / 100) * data['20DayAvgVolume']
+        data['PriceChange'] = data['Close'].pct_change() * 100
+        data['PriceBreakout'] = data['PriceChange'] > price_change
+        breakout_days = data[(data['VolumeBreakout']) & (data['PriceBreakout'])]
+        # Debugging statement
+        print(f"Identified {len(breakout_days)} breakout days")
+        return breakout_days
+    except Exception as e:
+        print(f"Error identifying breakouts: {e}")
+        return pd.DataFrame()
 
 def calculate_returns(data: pd.DataFrame, breakout_days: pd.DataFrame, holding_period: int, waiting_period: int, strategy_name: str) -> pd.DataFrame:
     """Calculate returns for each breakout based on the holding period and waiting period."""
@@ -30,13 +42,16 @@ def calculate_returns(data: pd.DataFrame, breakout_days: pd.DataFrame, holding_p
 
     for breakout_date in breakout_days.index:
         buy_date = breakout_date + BDay(waiting_period)
+        print(f"Breakout Date: {breakout_date}, Buy Date: {buy_date}")  # Debugging statement
 
         # Check if buy_date is within data range
-        if buy_date not in data.index:
+        if buy_date not in data.index or buy_date >= data.index[-1]:
+            print(f"Buy Date {buy_date} not in data index.")
             continue
 
         buy_price = data.at[buy_date, 'Close']
         sell_date = buy_date + BDay(holding_period)
+        print(f"Sell Date: {sell_date}")  # Debugging statement
 
         # Check if sell_date is within data range
         if sell_date in data.index:
@@ -58,7 +73,6 @@ def calculate_returns(data: pd.DataFrame, breakout_days: pd.DataFrame, holding_p
         })
 
     return pd.DataFrame(results)
-
 
 def create_plot(data: pd.DataFrame, results: pd.DataFrame, ticker: str, title: str) -> str:
     """Create a Plotly plot showing buy and sell points on the stock price chart."""
@@ -93,11 +107,9 @@ def create_plot(data: pd.DataFrame, results: pd.DataFrame, ticker: str, title: s
     fig.write_html(plot_path)
     return plot_path
 
-
 @app.route('/', methods=['GET'])
 def home():
     return render_template('index.html')
-
 
 @app.route('/generate-report', methods=['POST'])
 def generate_report():
@@ -112,41 +124,38 @@ def generate_report():
         price_change = float(request.form['price_change'])
         holding_period = int(request.form['holding_period'])
         waiting_period = int(request.form['waiting_period'])
-    except ValueError:
-        return "<h2>Error: Invalid input. Please ensure all thresholds and periods are numeric.</h2>"
 
-    # Fetch data
-    data = fetch_data(ticker, start_date, end_date)
-    if data.empty:
-        return "<h2>Error: No data found for the given ticker and date range.</h2>"
+        # Fetch data
+        data = fetch_data(ticker, start_date, end_date)
+        if data.empty:
+            return "<h2>Error: No data found for the given ticker and date range.</h2>"
 
-    # Identify breakout days
-    breakout_days = identify_breakouts(data, volume_threshold, price_change)
+        # Identify breakout days
+        breakout_days = identify_breakouts(data, volume_threshold, price_change)
+        if breakout_days.empty:
+            return "<h2>No breakouts identified with the given parameters. Please adjust the thresholds.</h2>"
 
-    # Check if any breakouts were identified
-    if breakout_days.empty:
-        return "<h2>No breakouts identified with the given parameters. Please adjust the thresholds.</h2>"
+        # Calculate returns
+        results_breakout = calculate_returns(data, breakout_days, holding_period, waiting_period, "Breakout Strategy")
+        if results_breakout.empty:
+            return "<h2>No valid trades found with the given holding and waiting period. Please adjust the periods.</h2>"
 
-    # Calculate returns
-    results_breakout = calculate_returns(data, breakout_days, holding_period, waiting_period, "Breakout Strategy")
+        # Save results to CSV
+        output_csv = BytesIO()
+        results_breakout.to_csv(output_csv, index=False, float_format="%.2f")
+        output_csv.seek(0)
 
-    # Check if results are empty
-    if results_breakout.empty:
-        return "<h2>No valid trades found with the given holding and waiting period. Please adjust the periods.</h2>"
+        # Create plot
+        plot_path = create_plot(data, results_breakout, ticker, "Breakout Strategy")
 
-    # Save results to CSV
-    output_csv = BytesIO()
-    results_breakout.to_csv(output_csv, index=False, float_format="%.2f")
-    output_csv.seek(0)
+        return render_template('report2.html',
+                               ticker=ticker,
+                               download_link=url_for('download_csv'),
+                               breakout_plot=plot_path)
 
-    # Create plot
-    plot_path = create_plot(data, results_breakout, ticker, "Breakout Strategy")
-
-    return render_template('report2.html',
-                           ticker=ticker,
-                           download_link=url_for('download_csv'),
-                           breakout_plot=plot_path)
-
+    except Exception as e:
+        error_message = f"<h2>Internal Server Error: {str(e)}</h2><pre>{traceback.format_exc()}</pre>"
+        return error_message
 
 @app.route('/download-csv')
 def download_csv():
@@ -159,7 +168,6 @@ def download_csv():
             return "<h2>Error: No CSV file found. Please generate the report first.</h2>"
     except Exception as e:
         return f"<h2>Error during download: {str(e)}</h2>"
-
 
 if __name__ == '__main__':
     app.run(debug=True)
