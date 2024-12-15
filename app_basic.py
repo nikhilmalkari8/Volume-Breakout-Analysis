@@ -43,33 +43,36 @@ def calculate_returns(data: pd.DataFrame, breakout_days: pd.DataFrame, holding_p
     results = []
 
     for breakout_date in breakout_days.index:
+        # Calculate the Buy Date: Breakout Date + Waiting Period
         buy_date = breakout_date + waiting_period * us_bd
 
-        # Check if buy_date is within data range
+        # Ensure the Buy Date is within the data range
         if buy_date not in data.index or buy_date >= data.index[-1]:
             continue
 
         buy_price = data.at[buy_date, 'Close']
+
+        # Calculate the initial Sell Date: Buy Date + Holding Period (40 trading days)
         sell_date = buy_date + holding_period * us_bd
 
-        # Adjust sell_date to the nearest available business day within the data
-        sell_date = data.index[data.index.get_indexer([sell_date], method='nearest')[0]]
+        # If Sell Date is not in the data, find the next valid trading day
+        while sell_date not in data.index and sell_date <= data.index[-1]:
+            sell_date += us_bd
 
-        # Check if sell_date is within data range
-        if sell_date in data.index:
-            sell_price = data.at[sell_date, 'Close']
-            return_percent = ((sell_price - buy_price) / buy_price) * 100
-        else:
-            sell_price = None
-            return_percent = None
-            sell_date = "N/A"
+        # Ensure the final Sell Date is within the data range
+        if sell_date not in data.index:
+            print(f"No valid Sell Date found for breakout on {breakout_date}")
+            continue
+
+        sell_price = data.at[sell_date, 'Close']
+        return_percent = ((sell_price - buy_price) / buy_price) * 100
 
         results.append({
             'Strategy': strategy_name,
             'Breakout Date': breakout_date.date(),
             'Buy Date': buy_date.date(),
             'Buy Price': buy_price,
-            'Sell Date': sell_date.date() if sell_price else "N/A",
+            'Sell Date': sell_date.date(),
             'Sell Price': sell_price,
             'Return (%)': return_percent
         })
