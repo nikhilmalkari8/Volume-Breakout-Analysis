@@ -82,14 +82,15 @@ def create_plot(data: pd.DataFrame, results: pd.DataFrame, ticker: str, title: s
     fig.add_trace(go.Scatter(x=data.index, y=data['Close'], mode='lines', name='Stock Price'))
 
     # Plot buy points
-    buy_dates = pd.to_datetime(results['Buy Date'].dropna())
+    buy_dates = pd.to_datetime(results['Buy Date'].dropna(), errors='coerce')
     buy_prices = results['Buy Price'].dropna()
     fig.add_trace(go.Scatter(x=buy_dates, y=buy_prices, mode='markers', name='Buy Point',
                              marker=dict(color='green', symbol='triangle-up', size=10)))
 
-    # Plot sell points
-    sell_dates = pd.to_datetime(results['Sell Date'].dropna())
-    sell_prices = results['Sell Price'].dropna()
+    # Filter out rows where 'Sell Date' is 'N/A' before converting
+    valid_sell_dates = results[results['Sell Date'] != 'N/A']
+    sell_dates = pd.to_datetime(valid_sell_dates['Sell Date'], errors='coerce')
+    sell_prices = valid_sell_dates['Sell Price'].dropna()
     fig.add_trace(go.Scatter(x=sell_dates, y=sell_prices, mode='markers', name='Sell Point',
                              marker=dict(color='red', symbol='triangle-down', size=10)))
 
