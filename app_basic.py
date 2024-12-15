@@ -50,7 +50,7 @@ def calculate_returns(data: pd.DataFrame, breakout_days: pd.DataFrame, holding_p
             'Breakout Date': breakout_date.date(),
             'Buy Date': buy_date.date(),
             'Buy Price': buy_price,
-            'Sell Date': sell_date if sell_price else "N/A",
+            'Sell Date': sell_date.date() if sell_price else "N/A",
             'Sell Price': sell_price,
             'Return (%)': return_percent
         })
@@ -100,7 +100,7 @@ def home():
 @app.route('/generate-report', methods=['POST'])
 def generate_report():
     global output_csv
-    
+
     try:
         # Get form inputs
         ticker = request.form['ticker']
