@@ -31,12 +31,14 @@ def calculate_returns(data: pd.DataFrame, breakout_days: pd.DataFrame, holding_p
     for breakout_date in breakout_days.index:
         buy_date = breakout_date + BDay(waiting_period)
 
+        # Check if buy_date is within data range
         if buy_date not in data.index:
             continue
 
         buy_price = data.at[buy_date, 'Close']
         sell_date = buy_date + BDay(holding_period)
 
+        # Check if sell_date is within data range
         if sell_date in data.index:
             sell_price = data.at[sell_date, 'Close']
             return_percent = ((sell_price - buy_price) / buy_price) * 100
@@ -111,7 +113,7 @@ def generate_report():
         holding_period = int(request.form['holding_period'])
         waiting_period = int(request.form['waiting_period'])
     except ValueError:
-        return "<h2>Error: Invalid input. Please ensure all thresholds are numeric.</h2>"
+        return "<h2>Error: Invalid input. Please ensure all thresholds and periods are numeric.</h2>"
 
     # Fetch data
     data = fetch_data(ticker, start_date, end_date)
@@ -121,8 +123,16 @@ def generate_report():
     # Identify breakout days
     breakout_days = identify_breakouts(data, volume_threshold, price_change)
 
+    # Check if any breakouts were identified
+    if breakout_days.empty:
+        return "<h2>No breakouts identified with the given parameters. Please adjust the thresholds.</h2>"
+
     # Calculate returns
     results_breakout = calculate_returns(data, breakout_days, holding_period, waiting_period, "Breakout Strategy")
+
+    # Check if results are empty
+    if results_breakout.empty:
+        return "<h2>No valid trades found with the given holding and waiting period. Please adjust the periods.</h2>"
 
     # Save results to CSV
     output_csv = BytesIO()
@@ -137,6 +147,7 @@ def generate_report():
                            download_link=url_for('download_csv'),
                            breakout_plot=plot_path)
 
+
 @app.route('/download-csv')
 def download_csv():
     global output_csv
@@ -148,6 +159,7 @@ def download_csv():
             return "<h2>Error: No CSV file found. Please generate the report first.</h2>"
     except Exception as e:
         return f"<h2>Error during download: {str(e)}</h2>"
+
 
 if __name__ == '__main__':
     app.run(debug=True)
