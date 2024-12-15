@@ -110,6 +110,34 @@ def create_plot(data: pd.DataFrame, results: pd.DataFrame, ticker: str, title: s
     fig.write_html(plot_path)
     return plot_path
 
+def calculate_performance_metrics(results: pd.DataFrame) -> dict:
+    """Calculate and return performance metrics for the strategy."""
+    # Filter valid trades with non-null returns
+    valid_results = results.dropna(subset=['Return (%)'])
+    
+    total_trades = len(valid_results)
+    winning_trades = len(valid_results[valid_results['Return (%)'] > 0])
+    losing_trades = len(valid_results[valid_results['Return (%)'] < 0])
+    average_return = valid_results['Return (%)'].mean()
+    max_return = valid_results['Return (%)'].max()
+    min_return = valid_results['Return (%)'].min()
+    
+    metrics = {
+        "Total Trades": total_trades,
+        "Winning Trades": winning_trades,
+        "Losing Trades": losing_trades,
+        "Average Return (%)": average_return,
+        "Maximum Return (%)": max_return,
+        "Minimum Return (%)": min_return
+    }
+    
+    # Print metrics to the console
+    print("\nPerformance Metrics:")
+    for key, value in metrics.items():
+        print(f"{key}: {value:.2f}")
+    
+    return metrics
+
 @app.route('/', methods=['GET'])
 def home():
     return render_template('index.html')
@@ -143,6 +171,9 @@ def generate_report():
         if results_breakout.empty:
             return "<h2>No valid trades found with the given holding and waiting period. Please adjust the periods.</h2>"
 
+        # Calculate and print performance metrics
+        metrics = calculate_performance_metrics(results_breakout)
+
         # Save results to CSV
         output_csv = BytesIO()
         results_breakout.to_csv(output_csv, index=False, float_format="%.2f")
@@ -154,7 +185,8 @@ def generate_report():
         return render_template('report2.html',
                                ticker=ticker,
                                download_link=url_for('download_csv'),
-                               breakout_plot=plot_path)
+                               breakout_plot=plot_path,
+                               metrics=metrics)
 
     except Exception as e:
         error_message = f"<h2>Internal Server Error: {str(e)}</h2><pre>{traceback.format_exc()}</pre>"
