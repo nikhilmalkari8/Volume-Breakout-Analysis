@@ -36,22 +36,29 @@ def identify_breakouts(data: pd.DataFrame, volume_threshold: float, price_change
         print(f"Error identifying breakouts: {e}")
         return pd.DataFrame()
 
+from pandas.tseries.offsets import CustomBusinessDay
+from pandas.tseries.holiday import USFederalHolidayCalendar
+
+# Define a custom business day with US federal holidays
+us_bd = CustomBusinessDay(calendar=USFederalHolidayCalendar())
+
 def calculate_returns(data: pd.DataFrame, breakout_days: pd.DataFrame, holding_period: int, waiting_period: int, strategy_name: str) -> pd.DataFrame:
     """Calculate returns for each breakout based on the holding period and waiting period."""
     results = []
 
     for breakout_date in breakout_days.index:
-        buy_date = breakout_date + BDay(waiting_period)
-        print(f"Breakout Date: {breakout_date}, Buy Date: {buy_date}")  # Debugging statement
+        buy_date = breakout_date + waiting_period * us_bd
 
         # Check if buy_date is within data range
         if buy_date not in data.index or buy_date >= data.index[-1]:
-            print(f"Buy Date {buy_date} not in data index.")
             continue
 
         buy_price = data.at[buy_date, 'Close']
-        sell_date = buy_date + BDay(holding_period)
-        print(f"Sell Date: {sell_date}")  # Debugging statement
+        sell_date = buy_date + holding_period * us_bd
+
+        # Ensure sell_date is adjusted to the next available business day
+        if sell_date not in data.index:
+            sell_date = data.index[data.index.get_loc(sell_date, method='nearest')]
 
         # Check if sell_date is within data range
         if sell_date in data.index:
@@ -73,6 +80,7 @@ def calculate_returns(data: pd.DataFrame, breakout_days: pd.DataFrame, holding_p
         })
 
     return pd.DataFrame(results)
+
 
 def create_plot(data: pd.DataFrame, results: pd.DataFrame, ticker: str, title: str) -> str:
     """Create a Plotly plot showing buy and sell points on the stock price chart."""
