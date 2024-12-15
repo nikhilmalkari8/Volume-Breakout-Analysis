@@ -138,10 +138,14 @@ def generate_report():
 @app.route('/download-csv')
 def download_csv():
     global output_csv
-    if output_csv:
-        output_csv.seek(0)
-        return send_file(output_csv, download_name="breakout_strategy_report.csv", as_attachment=True)
-    return "Error: Report not found. Please generate the report first."
-
+    try:
+        if output_csv:
+            output_csv.seek(0)
+            return send_file(output_csv, download_name="breakout_strategy_report.csv", as_attachment=True)
+        else:
+            return "<h2>Error: No CSV file found. Please generate the report first.</h2>"
+    except Exception as e:
+        return f"<h2>Error during download: {str(e)}</h2>"
+        
 if __name__ == '__main__':
     app.run(debug=True)
